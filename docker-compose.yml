@@ -9,6 +9,28 @@ services:
       - 8000:8000
     environment:
       - DB_URI=postgres://cred:cred@db/memesdb
+      - MINIO_PROTOCOL=http
+      - MINIO_ENDPOINT=172.19.0.3:5000
+      - MINIO_ACCESS_KEY=miniocred
+      - MINIO_SECRET_KEY=miniocred
+      - MINIO_BUCKET=memes
+    depends_on:
+      - db
+      - s3
+  s3:
+    image: minio/minio
+    ports:
+      - "5000:5000"
+      - "42495:42495"
+    volumes:
+      - ./storage/minio:/data
+    environment:
+      MINIO_ACCESS_KEY: miniocred
+      MINIO_SECRET_KEY: miniocred
+    command: server --address 0.0.0.0:5000 /data
+    expose:
+      - 5000
+
   db:
     image: postgres:15.1-alpine
     volumes:

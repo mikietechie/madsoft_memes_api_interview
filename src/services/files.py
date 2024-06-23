@@ -1,27 +1,32 @@
 import time
 
-# import boto3
-# from boto3.s3.transfer import S3Transfer
 from fastapi import UploadFile
 import aiofiles
-from slugify import slugify
+from minio import Minio
 
 import config
 
-# credentials = {
-#     "aws_access_key_id": config.AWS_ACCESS_KEY_ID,
-#     "aws_secret_access_key": config.AWS_SECRET_ACCESS_KEY,
-# }
+client = Minio(
+    endpoint=config.MINIO_ENDPOINT,
+    access_key=config.MINIO_ACCESS_KEY,
+    secret_key=config.MINIO_SECRET_KEY,
+    secure=config.MINIO_SECURE,
+)
 
-# client = boto3.client("s3", config.AWS_REGION, **credentials)
-# transfer = S3Transfer(client)
+if not client.bucket_exists(config.MINIO_BUCKET):
+    client.make_bucket(config.MINIO_BUCKET)
 
 
 class FileService(object):
+
+    @classmethod
+    def get_file_name(cls, file: UploadFile) -> str:
+        return f"{time.time()}-{file.filename}"
+
     @classmethod
     async def save_file_locally(cls, file: UploadFile) -> str:
         print(file.filename)
-        file_name = f"{time.time()}-{file.filename}"
+        file_name = cls.get_file_name(file)
         async with aiofiles.open(f"./media/{file_name}", "wb") as out:
             contents = file.file.read()
             await out.write(contents)
@@ -31,21 +36,17 @@ class FileService(object):
 
     @classmethod
     async def upload_file(cls, file: UploadFile) -> str:
-        """Please not that I cannot have an AWS Account from Russia as of June 2024"""
-        return await cls.save_file_locally(file)
-        """TODO: Use an async boto3 library if i do manage to find a stable one"""
-        # transfer.upload_file(
-        #     file, #"/tmp/myfile",
-        #     config.AWS_BUCKET,
-        #     config.AWS_KEY,
-        #     extra_args={"ACL": "public-read"},
-        # )
-        # file_url = "%s/%s/%s" % (
-        #     client.meta.endpoint_url,
-        #     config.AWS_BUCKET,
-        #     config.AWS_KEY,
-        # )
-        # return file_url
+        # return await cls.save_file_locally(file)
+        file_name = cls.get_file_name(file)
+        result = client.put_object(
+            bucket_name=config.MINIO_BUCKET,
+            object_name=file_name,
+            data=file.file,
+            length=-1,
+            part_size=10 * 1024 * 1024,
+        )
+        file.file.close()
+        return f"{config.MINIO_ADDRESS}/{config.MINIO_BUCKET}/{file_name}"
 
     @classmethod
     async def delete_file(cls, file_url: str):
