@@ -22,7 +22,8 @@ async def app_lifespan(app: FastAPI):
 app = FastAPI(lifespan=app_lifespan, title="Madsoft Memes API", )
 # NOTE: you might want to just render media files using Nginx
 app.mount("/media", StaticFiles(directory="media"), name="media")
-app.include_router(v1_router, prefix="/api")
+# app.include_router(v1_router, prefix="/api") # NOTE: this is better
+app.include_router(v1_router, prefix="")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
